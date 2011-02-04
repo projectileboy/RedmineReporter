@@ -1,0 +1,3 @@
+= reporter
+
+Redmine Reporter adds burnup reporting capabilities to Redmine.

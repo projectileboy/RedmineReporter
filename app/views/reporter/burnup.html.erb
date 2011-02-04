@@ -1,0 +1,72 @@
+<% content_for :header_tags do %>
+    <%= javascript_include_tag 'chart', :plugin => 'redmine_reporter' %>
+    <!--[if IE]><%= javascript_include_tag 'excanvas' %><![endif]-->
+<% end %>
+
+<h2>Project Burnup</h2>
+
+<canvas id="graph" width="400" height="300">
+    This text is displayed if your browser does not support HTML5 Canvas.
+</canvas>
+
+<script type="text/javascript">
+    var canvas = document.getElementById("graph");
+
+    // TODO - This can probably be improved... http://www.8bitrocket.com/2010/08/09/html5-canvas-re-size-demo/
+    window.onresize = function () {
+        canvas.width = window.innerWidth - 50;
+        canvas.height = window.innerHeight - 150;
+        drawLineChart([0, canvas.width], [canvas.height, 0], [0, canvas.height]);
+    };
+
+    canvas.width = window.innerWidth - 50;
+    canvas.height = window.innerHeight - 150;
+    drawLineChart([0, canvas.width], [canvas.height, 0], [0, canvas.height]);
+
+
+</script>
+
+<h4>Planned</h4>
+<table>
+    <tr>
+        <td>Week</td>
+        <td>Estimated Days</td>
+    </tr>
+
+    <% @planned.each do |key, value| -%>
+        <tr>
+            <td><%= key %></td>
+            <td><%= value %></td>
+        </tr>
+    <% end -%>
+</table>
+
+<h4>Signed</h4>
+<table>
+    <tr>
+        <td>Week</td>
+        <td>Estimated Days</td>
+    </tr>
+
+    <% @signed.each do |key, value| -%>
+        <tr>
+            <td><%= key %></td>
+            <td><%= value %></td>
+        </tr>
+    <% end -%>
+</table>
+
+<h4>Tested</h4>
+<table>
+    <tr>
+        <td>Week</td>
+        <td>Estimated Days</td>
+    </tr>
+
+    <% @tested.each do |key, value| -%>
+        <tr>
+            <td><%= key %></td>
+            <td><%= value %></td>
+        </tr>
+    <% end -%>
+</table>
