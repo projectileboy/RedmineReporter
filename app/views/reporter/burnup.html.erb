@@ -19,6 +19,7 @@
 
 <h2>Project Burnup</h2>
 
+
 <canvas id="graph" width="400" height="300">
     This text is displayed if your browser does not support HTML5 Canvas.
 </canvas>
@@ -26,61 +27,49 @@
 <script type="text/javascript">
     var canvas = document.getElementById("graph");
 
-    // TODO - This can probably be improved... http://www.8bitrocket.com/2010/08/09/html5-canvas-re-size-demo/
-    window.onresize = function () {
+    function draw() {
         canvas.width = window.innerWidth - 50;
         canvas.height = window.innerHeight - 150;
-        drawLineChart([0, canvas.width], [canvas.height, 0], [0, canvas.height]);
+        drawLineChart(
+            [<% @planned.each do |pair| -%>
+            [<%= pair[0] %>, <%= pair[1] %>],
+            <% end -%>],
+            [<% @signed.each do |pair| -%>
+            [<%= pair[0] %>, <%= pair[1] %>],
+            <% end -%>],
+            [<% @tested.each do |pair| -%>
+            [<%= pair[0] %>, <%= pair[1] %>],
+            <% end -%>]);
+    }
+
+    // TODO - The event handling for redraw can possibly be improved... see http://www.8bitrocket.com/2010/08/09/html5-canvas-re-size-demo/
+    window.onresize = function () {
+        draw();
     };
 
-    canvas.width = window.innerWidth - 50;
-    canvas.height = window.innerHeight - 150;
-    drawLineChart([0, canvas.width], [canvas.height, 0], [0, canvas.height]);
+    draw();
 
 
 </script>
 
-<h4>Planned</h4>
+<h3>Data</h3>
 <table>
     <tr>
-        <td>Week</td>
-        <td>Estimated Days</td>
+        <th>Week</th>
+        <th>Planned (Ideal Days)</th>
+        <th>Signed Off (Ideal Days)</th>
+        <th>Tested (Ideal Days)</th>
     </tr>
 
-    <% @planned.each do |key, value| -%>
+    <% @planned.each do |pair| -%>
         <tr>
-            <td><%= key %></td>
-            <td><%= value %></td>
+            <td><%= pair[0] %></td>
+            <td><%= pair[1] %></td>
+            <td><% if @signed[pair[0]].nil? -%>--<% else -%><%= @signed[pair[0]][1] %><% end -%></td>
+            <td><% if @tested[pair[0]].nil? -%>--<% else -%><%= @tested[pair[0]][1] %><% end -%></td>
         </tr>
     <% end -%>
 </table>
 
-<h4>Signed</h4>
-<table>
-    <tr>
-        <td>Week</td>
-        <td>Estimated Days</td>
-    </tr>
 
-    <% @signed.each do |key, value| -%>
-        <tr>
-            <td><%= key %></td>
-            <td><%= value %></td>
-        </tr>
-    <% end -%>
-</table>
-
-<h4>Tested</h4>
-<table>
-    <tr>
-        <td>Week</td>
-        <td>Estimated Days</td>
-    </tr>
-
-    <% @tested.each do |key, value| -%>
-        <tr>
-            <td><%= key %></td>
-            <td><%= value %></td>
-        </tr>
-    <% end -%>
-</table>
+<!-- TODO - Add link to export data as CSV -->

@@ -14,26 +14,22 @@
 
 require 'reporter_utility'
 
-
 # TODO - The state of things....
-# Chart: Font sizes, labels, colors, margin for labels and title
-# Controller: Hashes need to be sorted; or else use a different data structure (pairs in an array)
-# Controller + Chart: Pass data to chart to have lines drawn
-# View: Should add parameters to filter on particular parameters
-# Controller: Need to figure out if its possible to parameterize a block string in Ruby - I'd like to do this to my big SQL string
+# * Chart: Color legend for lines
+# * View: Should add parameters to filter on particular parameters
+# * Controller: Export data to CSV (see issues_helper.rb for sample code)
+# * Controller: Scope data based on current project (inluding child projects)
+# * Controller: Change hard-coded constants to user-configurable values (e.g., tracker_id)
 #
 class ReporterController < ApplicationController
   unloadable
 
   # before_filter :find_project, :authorize, :only => :burnup
 
-  # TODO - We could perhaps generalize this to simply take the first date for which we have data, or else a user-defined value
+  # TODO - Simply take the first date for which we have data, or else a user-defined value
   DATE_ZERO = Date.strptime "2009-08-04" # The date on which this project started
   YEAR_ZERO = DATE_ZERO.year
   DAY_ZERO = DATE_ZERO.yday # day of year
-
-
-  # TODO - In Ruby 1.8, hashes do NOT maintain insertion sort order!!
 
   def initialize
     @tested = {}
@@ -42,10 +38,16 @@ class ReporterController < ApplicationController
   end
 
   def burnup
-    # flash[:notice] = 'Just checking...'
+    # TODO - Filter which projects get pulled by default - get rid of the hard-coded IDs in the SQL
+    # TODO - Additionally, we need a selection box that lets you pick and choose child projects to ignore
+#    @project = Project.find(params[:id])
+#    @project.children.each do |child|
+#      puts child
+#    end
 
-    # Historical data
+    included_projects = "(1,3,4,5,6,7,8,9,10,11,12,13,14,15,17,19,21,22,23)"
 
+    # Fetch historical burnup data directly from the database
     results = ActiveRecord::Base.connection.execute <<-SQL
 
     SELECT issues.id,
@@ -61,7 +63,7 @@ class ReporterController < ApplicationController
                 AND custom_values.custom_field_id = 6
                 AND custom_values.value != 1)
     WHERE issues.tracker_id != 5
-        AND issues.project_id in (1,3,4,5,6,7,8,9,10,11,12,13,14,15,17,19,21,22,23)
+        AND issues.project_id in #{included_projects}
         AND issues.id = journals.journalized_id
         AND journals.id = journal_details.journal_id
         AND journal_details.prop_key in (' status_id ', ' estimated_hours ')
@@ -79,7 +81,7 @@ class ReporterController < ApplicationController
                 AND custom_values.custom_field_id = 6
                 AND custom_values.value != 1)
     WHERE issues.tracker_id != 5
-        AND issues.project_id in (1,3,4,5,6,7,8,9,10,11,12,13,14,15,17,19,21,22,23)
+        AND issues.project_id in #{included_projects}
 
     ORDER BY issues.id, modified_on DESC
     SQL
@@ -124,16 +126,13 @@ class ReporterController < ApplicationController
       end
     end
 
-    # @tested.
+    @tested = build_chart_line(@tested)
+    @signed = build_chart_line(@signed)
+    @planned = build_chart_line(@planned)
   end
 
 
-  def find_project
-    # @project variable must be set before calling the authorize filter
-#    @project = Project.find(params[:project_id]) TODO - This is blowing up!
-  end
-
-  #                           Double  Map<Integer, Double>
+  # TODO - Add dotted line for target end date
   def get_completion_week(total_work, prediction_data)
 #    entries = prediction_data.entrySet().iterator(); # TODO - FIX ME!!!
 #
@@ -146,25 +145,31 @@ class ReporterController < ApplicationController
   end
 
   # Add a chart line for a given data set, grouping the data (which is by individual day) by week
-  #                  String, String, int, Map<String, Double>
-  def build_chart_line(name, color, index, data)
-    line = ReporterUtility::ChartLine.new name, color, "o," + color + "," + index + ",-1,4.0"
-    accum, week = 0
-    data.each do |date, estimate|
+  def build_chart_line(data)
+    accum = 0
+    week = 0
 
+    # TODO - In Ruby 1.8, hashes do NOT maintain insertion sort order!! Grr... so we have to do a stupid data structure dance...
+    arr = []
+    data.each { |date, estimate_diff| arr << [date, estimate_diff] }
+    arr = arr.sort_by {|x| x.first }
+
+    line = []
+    arr.each do |point|
       # We display data by the week, only showing completed weeks
-      day = get_normalized_day date
+      day = get_normalized_day point[0] # date
+      puts day
       if day >= (7 * (week + 1))
-        line[week] = accum
+        line.push [week, accum]
         week = day / 7
       end
-      accum += estimate
+      accum += point[1] # estimate
     end
+
     line
   end
 
-  # Add a chart line which shows a predicted continuation over time (which we do with a simple line)
-  #                                  String, String, int, Map<Integer, Double>
+  # TODO - Add a chart line which shows a predicted continuation over time (which we do with a simple line)
   def build_predictive_chart_line(name, color, index, data)
     line = ChartLine.new name, color, "o," + color + "," + index + ",-1,4.5"
     data.each do |key, value|
@@ -175,13 +180,13 @@ class ReporterController < ApplicationController
 
   # For an historical entry for an issue in Redmine, we normalize the date to be the number of days
   # since "day zero" (2009/8/4) for the NMS project.
-  #             Map.Entry<String, Double> e
   def get_normalized_day dd
     date = Date.strptime(dd)
-    if date.year == 0
+    if date.year == YEAR_ZERO
       return date.yday - DAY_ZERO
-    elsif date.year >= 1
-      return ((date.year - 1) * ((Date.leap? date.year) ? 366 : 365)) + (365 - DAY_ZERO) + date.yday
+    elsif date.year > YEAR_ZERO
+      # TODO - This is broken...
+      return (((date.year - 1) - YEAR_ZERO) * ((Date.leap? date.year) ? 366 : 365)) + (365 - DAY_ZERO) + date.yday
     end
     raise Exception.new "Something is wrong with the year for this entry"
   end
@@ -189,7 +194,6 @@ class ReporterController < ApplicationController
 
   # If the status for a particular issue changed at some point, we need to add/subtract the estimated days
   # for that issue to the appropriate lines in the burnup chart.
-  #                          Status,    String,     Double
   def record_status_change(status, modified_date, estimated_days)
     if status.is_tested?
       add_estimated_days_on_date @tested, modified_date, estimated_days
@@ -202,7 +206,6 @@ class ReporterController < ApplicationController
 
   # If the estimated days for a particular issue changed at some point, we need to account for how this affected
   # the total count for any given status line in the burnup chart.
-  #                           Status,    String,     Double
   def record_estimate_change(status, modified_date, estimate_diff)
     if status.is_relevant?
       add_estimated_days_on_date(@planned, modified_date, estimate_diff)
@@ -218,7 +221,6 @@ class ReporterController < ApplicationController
   # Within the given ledger (there's a different one for each issue status), add/subtract the estimated_days
   # that were added/subtracted on the modified_date. This accounts for any historical changes in estimated days
   # which took place for a given issue.
-  #                      Map<String, Double>, String, Double
   def add_estimated_days_on_date(ledger, modified_date, estimated_days)
     if estimated_days.nil? or estimated_days == ""
       estimated_days = 0

@@ -91,14 +91,4 @@ module ReporterUtility
     end
   end
 
-
-  # Contains data and display info for a particular line (i.e., a collection of <x,y> data points) in a Google Line Chart
-  class ChartLine < Hash
-    def initialize name, color, data_point_display
-      @name = name
-      @color = color
-      @data_point_display = data_point_display
-    end
-  end
-
 end
